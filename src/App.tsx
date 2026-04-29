@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react'
 import { PDFDocument } from 'pdf-lib'
+import PdfPreview from './PdfPreview'
 import './App.css'
 
 interface PdfFile {
@@ -19,6 +20,8 @@ function App() {
   const [files, setFiles] = useState<PdfFile[]>([])
   const [isMerging, setIsMerging] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [mergedBlob, setMergedBlob] = useState<Blob | null>(null)
+  const [showPreview, setShowPreview] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -41,6 +44,7 @@ function App() {
     }
 
     setFiles(prev => [...prev, ...newFiles])
+    setMergedBlob(null)
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
     }
@@ -49,6 +53,7 @@ function App() {
   const removeFile = useCallback((id: string) => {
     setFiles(prev => prev.filter(f => f.id !== id))
     setError(null)
+    setMergedBlob(null)
   }, [])
 
   const moveFile = useCallback((id: string, direction: 'up' | 'down') => {
@@ -63,12 +68,13 @@ function App() {
       newFiles[newIndex] = temp
       return newFiles
     })
+    setMergedBlob(null)
   }, [])
 
-  const mergePdfs = useCallback(async () => {
+  const mergePdfs = useCallback(async (): Promise<Blob | null> => {
     if (files.length < 2) {
       setError('请至少添加 2 个 PDF 文件')
-      return
+      return null
     }
 
     setIsMerging(true)
@@ -86,21 +92,38 @@ function App() {
 
       const mergedBytes = await mergedPdf.save()
       const blob = new Blob([new Uint8Array(mergedBytes)], { type: 'application/pdf' })
-      const url = URL.createObjectURL(blob)
-
-      const link = document.createElement('a')
-      link.href = url
-      link.download = 'merged.pdf'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      setMergedBlob(blob)
+      return blob
     } catch {
       setError('合并失败，请确保所有文件都是有效的 PDF')
+      return null
     } finally {
       setIsMerging(false)
     }
   }, [files])
+
+  const handlePreview = useCallback(async () => {
+    let blob = mergedBlob
+    if (!blob) {
+      blob = await mergePdfs()
+    }
+    if (blob) {
+      setShowPreview(true)
+    }
+  }, [mergedBlob, mergePdfs])
+
+  const handleDownload = useCallback(() => {
+    if (!mergedBlob) return
+    const url = URL.createObjectURL(mergedBlob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'merged.pdf'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    setShowPreview(false)
+  }, [mergedBlob])
 
   return (
     <div className="container">
@@ -171,15 +194,33 @@ function App() {
             ))}
           </ul>
 
-          <button
-            type="button"
-            onClick={mergePdfs}
-            disabled={isMerging || files.length < 2}
-            className="btn-merge"
-          >
-            {isMerging ? '合并中...' : `合并 ${files.length} 个 PDF`}
-          </button>
+          <div className="action-buttons">
+            <button
+              type="button"
+              onClick={handlePreview}
+              disabled={isMerging || files.length < 2}
+              className="btn-preview"
+            >
+              {isMerging ? '处理中...' : '预览合并效果'}
+            </button>
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={!mergedBlob}
+              className="btn-merge"
+            >
+              直接下载
+            </button>
+          </div>
         </div>
+      )}
+
+      {showPreview && (
+        <PdfPreview
+          pdfBlob={mergedBlob}
+          onClose={() => setShowPreview(false)}
+          onDownload={handleDownload}
+        />
       )}
     </div>
   )
