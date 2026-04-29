@@ -1,0 +1,171 @@
+.container {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+h1 {
+  font-size: 36px;
+  margin: 0 0 8px;
+  color: var(--text-h);
+}
+
+.subtitle {
+  color: var(--text);
+  margin-bottom: 32px;
+}
+
+.upload-area {
+  margin-bottom: 24px;
+}
+
+.file-input {
+  display: none;
+}
+
+.upload-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-label:hover {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.upload-icon {
+  width: 40px;
+  height: 40px;
+  color: var(--accent);
+}
+
+.upload-hint {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.error {
+  color: #ef4444;
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.file-list {
+  margin-top: 24px;
+}
+
+.file-list h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+.file-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: var(--bg);
+}
+
+.file-index {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.file-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-h);
+}
+
+.file-size {
+  font-size: 14px;
+  color: var(--text);
+  flex-shrink: 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s, color 0.2s;
+}
+
+.btn-icon:hover:not(:disabled) {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+.btn-icon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-remove:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.btn-merge {
+  width: 100%;
+  padding: 14px 24px;
+  margin-top: 24px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.btn-merge:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.btn-merge:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
