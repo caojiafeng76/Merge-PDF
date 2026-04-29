@@ -3,9 +3,11 @@
 ## AI Development Workflow
 
 ### Before Starting Any Task
-1. **Read before write** — Always read relevant files first to understand context and conventions
-2. **Check existing patterns** — Look at neighboring files for naming, imports, and style conventions
-3. **Verify dependencies** — Check `package.json` before assuming a library exists
+1. **Think first** — Use `sequential-thinking` tool to analyze the task and plan approach
+2. **Search with Serena** — Use `serena_*` tools to find relevant symbols and understand codebase structure
+3. **Read before write** — Always read relevant files first to understand context and conventions
+4. **Check existing patterns** — Look at neighboring files for naming, imports, and style conventions
+5. **Verify dependencies** — Check `package.json` before assuming a library exists
 
 ### Task Execution Flow
 ```
