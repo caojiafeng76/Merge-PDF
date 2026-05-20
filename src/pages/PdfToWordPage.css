@@ -1,0 +1,11 @@
+.progress {
+  color: var(--accent);
+  margin: 12px 0;
+  font-size: 14px;
+}
+
+.success {
+  color: #22c55e;
+  margin: 16px 0 0;
+  font-size: 14px;
+}

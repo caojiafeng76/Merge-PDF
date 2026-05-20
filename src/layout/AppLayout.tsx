@@ -19,6 +19,12 @@ export default function AppLayout() {
           >
             Excel 合并
           </NavLink>
+          <NavLink
+            to="/pdf-to-word"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+          >
+            PDF 转 Word
+          </NavLink>
         </div>
       </nav>
       <Outlet />
