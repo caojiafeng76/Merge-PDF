@@ -46,11 +46,12 @@ By default, `.docx` files use the built-in Vercel fallback:
 
 This creates a text-based PDF rather than an image screenshot. The fallback is suitable for straightforward documents, but it is not as layout-faithful as LibreOffice.
 
-For Chinese text on Vercel, provide a reachable `.ttf` or `.otf` font URL:
+For Chinese text on Vercel, the fallback injects Noto Sans SC from jsDelivr by default:
 
-```bash
-WORD_TO_PDF_FONT_URL=https://your-cdn.example.com/NotoSansSC-Regular.otf
-```
+- `https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.2.9/files/noto-sans-sc-chinese-simplified-400-normal.woff2`
+- `https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.2.9/files/noto-sans-sc-chinese-simplified-700-normal.woff2`
+
+If you need a different font for rare glyphs or branding, set `WORD_TO_PDF_FONT_URL` to a reachable `.ttf` or `.otf` URL.
 
 For legacy `.doc` files or high-fidelity Word layout, configure a converter service URL in Vercel:
 

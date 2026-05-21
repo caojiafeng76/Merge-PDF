@@ -2,7 +2,30 @@ import { randomUUID } from 'node:crypto'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
+export const DEFAULT_CJK_FONT_URLS = {
+  regular: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.2.9/files/noto-sans-sc-chinese-simplified-400-normal.woff2',
+  bold: 'https://cdn.jsdelivr.net/npm/@fontsource/noto-sans-sc@5.2.9/files/noto-sans-sc-chinese-simplified-700-normal.woff2',
+}
+
+const DEFAULT_CJK_FONT_URL_SET = new Set(Object.values(DEFAULT_CJK_FONT_URLS))
+
 const pageCss = `
+  @font-face {
+    font-family: 'Noto Sans SC';
+    font-style: normal;
+    font-display: block;
+    font-weight: 400;
+    src: url('${DEFAULT_CJK_FONT_URLS.regular}') format('woff2');
+  }
+
+  @font-face {
+    font-family: 'Noto Sans SC';
+    font-style: normal;
+    font-display: block;
+    font-weight: 700;
+    src: url('${DEFAULT_CJK_FONT_URLS.bold}') format('woff2');
+  }
+
   @page {
     size: A4;
     margin: 18mm 16mm;
@@ -58,7 +81,7 @@ const pageCss = `
   }
 `
 
-function getHtmlDocument(bodyHtml) {
+export function getHtmlDocument(bodyHtml) {
   return `<!doctype html>
 <html lang="zh-CN">
   <head>
@@ -67,6 +90,20 @@ function getHtmlDocument(bodyHtml) {
   </head>
   <body>${bodyHtml}</body>
 </html>`
+}
+
+export function isAllowedRenderRequestUrl(url) {
+  if (url === 'about:blank' || url.startsWith('data:')) return true
+
+  try {
+    const parsedUrl = new URL(url)
+    if (DEFAULT_CJK_FONT_URL_SET.has(parsedUrl.href)) return true
+
+    const customFontUrl = process.env.WORD_TO_PDF_FONT_URL
+    return customFontUrl ? parsedUrl.href === customFontUrl : false
+  } catch {
+    return false
+  }
 }
 
 async function loadChromiumFont(chromium) {
@@ -127,8 +164,7 @@ export async function convertDocxBufferToPdf(inputBuffer, filename) {
     await page.setJavaScriptEnabled(false)
     await page.setRequestInterception(true)
     page.on('request', request => {
-      const url = request.url()
-      if (url === 'about:blank' || url.startsWith('data:')) {
+      if (isAllowedRenderRequestUrl(request.url())) {
         request.continue()
         return
       }
@@ -140,6 +176,7 @@ export async function convertDocxBufferToPdf(inputBuffer, filename) {
       waitUntil: 'networkidle0',
       timeout: 30_000,
     })
+    await page.evaluate(() => document.fonts.ready)
 
     const pdfBuffer = await page.pdf({
       format: 'A4',
