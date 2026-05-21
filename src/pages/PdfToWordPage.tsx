@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef } from 'react'
 import * as pdfjsLib from 'pdfjs-dist'
-import { Document, Paragraph, TextRun, Packer } from 'docx'
+import { Document, Paragraph, TextRun, Packer, PageBreak } from 'docx'
+import type { IFontAttributesProperties } from 'docx'
 import '../App.css'
 import './PdfToWordPage.css'
 
@@ -21,9 +22,88 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
+interface TextItemInfo {
+  str: string
+  x: number
+  y: number
+  fontSize: number
+  fontName: string
+  hasEOL: boolean
+}
+
+interface LineInfo {
+  y: number
+  items: TextItemInfo[]
+}
+
+const DEFAULT_FONT: IFontAttributesProperties = {
+  ascii: 'Times New Roman',
+  hAnsi: 'Times New Roman',
+  eastAsia: '宋体',
+  cs: 'Times New Roman',
+}
+
+function isChineseChar(ch: string): boolean {
+  const code = ch.codePointAt(0)
+  if (code === undefined) return false
+  return (
+    (code >= 0x4e00 && code <= 0x9fff) ||
+    (code >= 0x3400 && code <= 0x4dbf) ||
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0x2f800 && code <= 0x2fa1f)
+  )
+}
+
+function containsChinese(text: string): boolean {
+  for (const ch of text) {
+    if (isChineseChar(ch)) return true
+  }
+  return false
+}
+
+
+
+function isBoldFont(fontName: string): boolean {
+  const lower = fontName.toLowerCase()
+  return lower.includes('bold') || lower.includes('heavy') || lower.includes('black')
+}
+
+function groupItemsByLine(items: TextItemInfo[]): LineInfo[] {
+  if (items.length === 0) return []
+
+  const sorted = [...items].sort((a, b) => {
+    const yDiff = a.y - b.y
+    if (Math.abs(yDiff) > 2) return yDiff
+    return a.x - b.x
+  })
+
+  const lines: LineInfo[] = []
+  let currentLine: TextItemInfo[] = [sorted[0]]
+  let currentY = sorted[0].y
+
+  for (let i = 1; i < sorted.length; i++) {
+    const item = sorted[i]
+    if (Math.abs(item.y - currentY) <= 2) {
+      currentLine.push(item)
+    } else {
+      currentLine.sort((a, b) => a.x - b.x)
+      lines.push({ y: currentY, items: currentLine })
+      currentLine = [item]
+      currentY = item.y
+    }
+  }
+
+  if (currentLine.length > 0) {
+    currentLine.sort((a, b) => a.x - b.x)
+    lines.push({ y: currentY, items: currentLine })
+  }
+
+  return lines
+}
+
 interface PageText {
   pageNum: number
-  paragraphs: string[]
+  lines: LineInfo[]
 }
 
 export default function PdfToWordPage() {
@@ -75,26 +155,40 @@ export default function PdfToWordPage() {
       setProgress(`正在提取文本：第 ${i} / ${totalPages} 页`)
       const page = await pdf.getPage(i)
       const textContent = await page.getTextContent()
+      const viewport = page.getViewport({ scale: 1 })
 
-      const lines: string[] = []
-      let currentLine = ''
+      const items: TextItemInfo[] = []
 
       for (const item of textContent.items) {
         const textItem = item as Record<string, unknown>
-        if (typeof textItem.str === 'string') {
-          currentLine += textItem.str
-          if (textItem.hasEOL === true) {
-            const trimmed = currentLine.trim()
-            if (trimmed) lines.push(trimmed)
-            currentLine = ''
-          }
+        if (typeof textItem.str !== 'string') continue
+
+        const str: string = textItem.str
+        const hasEOL: boolean = textItem.hasEOL === true
+        const transform = textItem.transform as number[] | undefined
+        const height = typeof textItem.height === 'number' ? textItem.height : 12
+
+        let x = 0
+        let y = 0
+        let fontSize = height
+
+        if (transform && transform.length >= 6) {
+          x = transform[4]
+          y = viewport.height - transform[5]
+          const scaleY = Math.abs(transform[3])
+          if (scaleY > 0) fontSize = scaleY
+          else if (height > 0) fontSize = height
+        }
+
+        const fontName = typeof textItem.fontName === 'string' ? textItem.fontName : ''
+
+        if (str || hasEOL) {
+          items.push({ str, x, y, fontSize, fontName, hasEOL })
         }
       }
 
-      const last = currentLine.trim()
-      if (last) lines.push(last)
-
-      result.push({ pageNum: i, paragraphs: lines })
+      const lines = groupItemsByLine(items)
+      result.push({ pageNum: i, lines })
     }
 
     return result
@@ -113,10 +207,15 @@ export default function PdfToWordPage() {
     try {
       const pageTexts = await extractTextFromPdf(fileInfo.file)
 
-      const totalTextLength = pageTexts.reduce(
-        (sum, p) => sum + p.paragraphs.reduce((s, t) => s + t.length, 0),
-        0
-      )
+      let totalTextLength = 0
+      for (const page of pageTexts) {
+        for (const line of page.lines) {
+          for (const item of line.items) {
+            totalTextLength += item.str.length
+          }
+        }
+      }
+
       if (totalTextLength === 0) {
         setError('未能从该 PDF 中提取到文本，可能是扫描件或图片 PDF')
         setIsConverting(false)
@@ -126,17 +225,90 @@ export default function PdfToWordPage() {
       setProgress('正在生成 Word 文档...')
 
       const paragraphs: Paragraph[] = []
-      for (const page of pageTexts) {
-        for (const text of page.paragraphs) {
+
+      for (let pageIdx = 0; pageIdx < pageTexts.length; pageIdx++) {
+        const page = pageTexts[pageIdx]
+
+        if (pageIdx > 0) {
           paragraphs.push(
-            new Paragraph({ children: [new TextRun({ text })] })
+            new Paragraph({
+              children: [new PageBreak()],
+            })
           )
         }
-        paragraphs.push(new Paragraph({ children: [] }))
+
+        for (const line of page.lines) {
+          const textRuns: TextRun[] = []
+          let currentText = ''
+          let currentFontSize = 0
+          let currentBold = false
+          let currentHasChinese = false
+
+          const flushRun = () => {
+            if (!currentText) return
+            textRuns.push(
+              new TextRun({
+                text: currentText,
+                size: currentFontSize > 0 ? currentFontSize * 2 : undefined,
+                bold: currentBold || undefined,
+                font: currentHasChinese
+                  ? {
+                      ascii: 'Times New Roman',
+                      hAnsi: 'Times New Roman',
+                      eastAsia: '宋体',
+                      cs: 'Times New Roman',
+                    }
+                  : currentFontSize > 0
+                    ? undefined
+                    : undefined,
+              })
+            )
+            currentText = ''
+          }
+
+          for (const item of line.items) {
+            const bold = isBoldFont(item.fontName)
+            const hasChinese = containsChinese(item.str)
+            const fontSize = Math.round(item.fontSize)
+            const sameStyle =
+              bold === currentBold && fontSize === currentFontSize && hasChinese === currentHasChinese
+
+            if (!sameStyle && currentText) {
+              flushRun()
+            }
+
+            currentBold = bold
+            currentFontSize = fontSize
+            currentHasChinese = hasChinese
+            currentText += item.str
+          }
+
+          flushRun()
+
+          if (textRuns.length > 0) {
+            paragraphs.push(new Paragraph({ children: textRuns }))
+          } else {
+            paragraphs.push(new Paragraph({ children: [] }))
+          }
+        }
       }
 
       const doc = new Document({
-        sections: [{ properties: {}, children: paragraphs }],
+        styles: {
+          default: {
+            document: {
+              run: {
+                font: DEFAULT_FONT,
+              },
+            },
+          },
+        },
+        sections: [
+          {
+            properties: {},
+            children: paragraphs,
+          },
+        ],
       })
 
       const blob = await Packer.toBlob(doc)
