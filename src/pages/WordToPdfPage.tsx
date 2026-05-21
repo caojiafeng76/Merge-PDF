@@ -137,7 +137,7 @@ export default function WordToPdfPage() {
   return (
     <div className="container">
       <h1>Word 转 PDF</h1>
-      <p className="subtitle">通过后端转换保留可编辑文字，避免中文乱码</p>
+      <p className="subtitle">后端生成文本型 PDF，避免截图式转换</p>
 
       <div className="upload-area">
         <input

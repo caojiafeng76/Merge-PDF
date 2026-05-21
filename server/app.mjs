@@ -7,18 +7,27 @@ import {
   getPdfFilename,
   isSupportedWordFilename,
 } from './word-to-pdf.mjs'
+import { convertDocxBufferToPdf } from './docx-html-pdf.mjs'
 
 const maxUploadBytes = Number.parseInt(process.env.MAX_WORD_UPLOAD_BYTES ?? `${50 * 1024 * 1024}`, 10)
 
-async function convertWithRemoteService(inputBuffer, filename, mimetype) {
+function isDocxFilename(filename) {
+  return /\.docx$/i.test(filename)
+}
+
+async function convertWithRemoteService(inputBuffer, filename, mimetype, options = {}) {
   const converterUrl = process.env.WORD_TO_PDF_CONVERTER_URL
 
   if (!converterUrl) {
     if (process.env.VERCEL) {
+      if (isDocxFilename(filename)) {
+        return await options.convertDocxBuffer(inputBuffer, filename)
+      }
+
       throw new ConversionError(
-        'Vercel Functions 不包含 LibreOffice。请配置 WORD_TO_PDF_CONVERTER_URL 指向可执行 Word 转 PDF 的服务',
+        'Vercel 内置降级转换仅支持 .docx。.doc 或高保真转换请配置 WORD_TO_PDF_CONVERTER_URL',
         501,
-        'CONVERTER_NOT_CONFIGURED'
+        'REMOTE_CONVERTER_REQUIRED'
       )
     }
 
@@ -114,7 +123,10 @@ export function createApp(options = {}) {
     },
   })
 
-  const convertWordBuffer = options.convertWordBuffer ?? convertWithRemoteService
+  const convertDocxBuffer = options.convertDocxBuffer ?? convertDocxBufferToPdf
+  const convertWordBuffer = options.convertWordBuffer ?? ((inputBuffer, filename, mimetype) => (
+    convertWithRemoteService(inputBuffer, filename, mimetype, { convertDocxBuffer })
+  ))
 
   app.disable('x-powered-by')
 

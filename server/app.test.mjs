@@ -74,11 +74,20 @@ describe('Express Word to PDF API', () => {
     })
   })
 
-  it('returns a Vercel-specific error when no conversion backend is configured', async () => {
+  it('uses the DOCX fallback on Vercel when no conversion backend is configured', async () => {
     process.env.VERCEL = '1'
     delete process.env.WORD_TO_PDF_CONVERTER_URL
 
-    const app = createApp()
+    let fallbackFilename = ''
+    const app = createApp({
+      convertDocxBuffer: async (_buffer, filename) => {
+        fallbackFilename = filename
+        return {
+          filename: filename.replace(/\.docx$/i, '.pdf'),
+          pdfBuffer: Buffer.from('%PDF-1.7\n'),
+        }
+      },
+    })
 
     await withTestServer(app, async baseUrl => {
       const response = await fetch(`${baseUrl}/api/word-to-pdf`, {
@@ -86,10 +95,32 @@ describe('Express Word to PDF API', () => {
         body: createWordUpload(),
       })
 
+      assert.equal(response.status, 200)
+      assert.equal(await response.text(), '%PDF-1.7\n')
+      assert.equal(fallbackFilename, '合同模板.docx')
+    })
+  })
+
+  it('requires a remote converter for legacy .doc files on Vercel', async () => {
+    process.env.VERCEL = '1'
+    delete process.env.WORD_TO_PDF_CONVERTER_URL
+
+    const app = createApp({
+      convertDocxBuffer: async () => {
+        throw new Error('DOC fallback should not run for legacy DOC files')
+      },
+    })
+
+    await withTestServer(app, async baseUrl => {
+      const response = await fetch(`${baseUrl}/api/word-to-pdf`, {
+        method: 'POST',
+        body: createWordUpload('legacy.doc'),
+      })
+
       assert.equal(response.status, 501)
       assert.deepEqual(await response.json(), {
-        error: 'Vercel Functions 不包含 LibreOffice。请配置 WORD_TO_PDF_CONVERTER_URL 指向可执行 Word 转 PDF 的服务',
-        code: 'CONVERTER_NOT_CONFIGURED',
+        error: 'Vercel 内置降级转换仅支持 .docx。.doc 或高保真转换请配置 WORD_TO_PDF_CONVERTER_URL',
+        code: 'REMOTE_CONVERTER_REQUIRED',
       })
     })
   })
