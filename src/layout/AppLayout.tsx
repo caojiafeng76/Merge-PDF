@@ -31,6 +31,12 @@ export default function AppLayout() {
           >
             Word 转 PDF
           </NavLink>
+          <NavLink
+            to="/image-to-pdf"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+          >
+            图片转 PDF
+          </NavLink>
         </div>
       </nav>
       <Outlet />

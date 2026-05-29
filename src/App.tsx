@@ -4,6 +4,7 @@ import PdfMergePage from './pages/PdfMergePage'
 import ExcelMergePage from './pages/ExcelMergePage'
 import PdfToWordPage from './pages/PdfToWordPage'
 import WordToPdfPage from './pages/WordToPdfPage'
+import ImageToPdfPage from './pages/ImageToPdfPage'
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="/excel" element={<ExcelMergePage />} />
           <Route path="/pdf-to-word" element={<PdfToWordPage />} />
           <Route path="/word-to-pdf" element={<WordToPdfPage />} />
+          <Route path="/image-to-pdf" element={<ImageToPdfPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
